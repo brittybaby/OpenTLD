@@ -308,25 +308,35 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 			{
 				if (firstTimeRingDetection)
 				{
-					status = "picking";
-					// Find intersection of moving Ring ROI with the first half and determine which
-					// Ring trainee is trying to pick up; then change the code of the ring
-					for (int i = 0; i < _pegBox.pegs_firstHalf.size(); ++i)
+
+					Point center_ring = Point(mvRingROI.x + (mvRingROI.width / 2.0), mvRingROI.y + mvRingROI.height / 2.0);
+					Point center_tooltip = Point(trackingOut.x + trackingOut.width, trackingOut.y + trackingOut.height + 40);
+					if (center_ring.x > 0 && center_ring.y > 0)
 					{
-						Rect r = _pegBox.pegs_firstHalf[i].roi;
-						int code = _pegBox.pegs_firstHalf[i].code;
-						bool intersect = _ringBox.rectOverlap(r, mvRingROI);
-						if (intersect)
+						dist = sqrt(((center_ring.x - center_tooltip.x)*(center_ring.x - center_tooltip.x)) + ((center_ring.y - center_tooltip.y)*(center_ring.y - center_tooltip.y)));
+						if (dist < 150)
 						{
-							for (int p = 0; p < _ringBox.rings.size(); ++p)
+							status = "picking";
+							// Find intersection of moving Ring ROI with the first half and determine which
+							// Ring trainee is trying to pick up; then change the code of the ring
+							for (int i = 0; i < _pegBox.pegs_firstHalf.size(); ++i)
 							{
-								if (code == _ringBox.rings[p].getCode())
+								Rect r = _pegBox.pegs_firstHalf[i].roi;
+								int code = _pegBox.pegs_firstHalf[i].code;
+								bool intersect = _ringBox.rectOverlap(r, mvRingROI);
+								if (intersect)
 								{
-									_ringBox.rings[p].setStatus(status);
+									for (int p = 0; p < _ringBox.rings.size(); ++p)
+									{
+										if (code == _ringBox.rings[p].getCode())
+										{
+											_ringBox.rings[p].setStatus(status);
+											break;
+										}
+									}
 									break;
 								}
 							}
-							break;
 						}
 					}
 				}
@@ -405,7 +415,6 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 		if (count2 > no_of_rings_placed_secondHalf)
 		{
 			// use tracking output and moving ring output to determine weather ring is placed or not
-			double threshold_distance;
 			Point center_ring = Point(mvRingROI.x + (mvRingROI.width / 2.0), mvRingROI.y + mvRingROI.height / 2.0);
 			Point center_tooltip = Point(trackingOut.x + trackingOut.width, trackingOut.y + trackingOut.height + 40);
 			if (center_ring.x > 0 && center_ring.y > 0)
@@ -691,7 +700,7 @@ void Main::doWork()
 		fprintf(resultsFile, "Locations and code of the Pegs (x,y,width,height,code)\n");
 		for (int i = 0; i < _pegBox.pegs.size(); ++i)
 		{
-			fprintf(resultsFile, "peg %d -> (%d, %d, %d, %d, %d)\n", i + 1, _pegBox.pegs[i].roi.x, _pegBox.pegs[i].roi.y, _pegBox.pegs[i].roi.width, _pegBox.pegs[i].roi.height, _pegBox.pegs[i].code);
+			fprintf(resultsFile, "peg %d ->  %d  %d  %d  %d  %d\n", i + 1, _pegBox.pegs[i].roi.x, _pegBox.pegs[i].roi.y, _pegBox.pegs[i].roi.width, _pegBox.pegs[i].roi.height, _pegBox.pegs[i].code);
 		}
 		fprintf(resultsFile, "\n\nFrame-No, Ring1-Status, Ring1-Code, Ring2-Status, Ring2-Code, Ring3-Status, Ring3-Code, Ring4-Status, Ring4-Code, Ring5-Status, Ring5-Code, Ring6-Status, Ring6-Code, Hitting-Detection-Output, Tracking-Output, Tracking-Output-Confidence\n");
 	}
@@ -753,7 +762,7 @@ void Main::doWork()
 		{
 			if (tld->currBB != NULL)
 			{
-				fprintf(resultsFile, "%d, %s, %d, %s, %d,%s, %d,%s, %d,%s, %d,%s, %d, %d, (%.2d, %.2d, %.2d, %.2d), %lf\n",
+				fprintf(resultsFile, "%d  %s  %d  %s  %d  %s  %d  %s  %d  %s  %d  %s  %d  %d  %.2d  %.2d  %.2d  %.2d  %lf\n",
 					imAcq->currentFrame - 1,
 					_ringBox.rings[0].getStatus().c_str(), _ringBox.rings[0].getCode(),
 					_ringBox.rings[1].getStatus().c_str(), _ringBox.rings[1].getCode(),
@@ -767,7 +776,7 @@ void Main::doWork()
 			}
 			else
 			{
-				fprintf(resultsFile, "%d, %s, %d, %s, %d,%s, %d,%s, %d,%s, %d,%s, %d, %d, (NaN, NaN, NaN, NaN), NaN\n",
+				fprintf(resultsFile, "%d  %s  %d  %s  %d  %s  %d  %s  %d  %s  %d  %s  %d  %d  -1  -1  -1  -1  -1 \n",
 					imAcq->currentFrame - 1,
 					_ringBox.rings[0].getStatus().c_str(), _ringBox.rings[0].getCode(),
 					_ringBox.rings[1].getStatus().c_str(), _ringBox.rings[1].getCode(),
@@ -789,6 +798,29 @@ void Main::doWork()
             skipProcessingOnce = false;
         }
 
+		// if tracking fails then prompt the user to reinitialize the tracking
+		if (tld->currBB == NULL)
+		{
+			if (first_tracking_failed_detection && trackingStart)
+			{
+				if (mvRingROI.width > 0)
+				{
+					CvRect box;
+					std::string message = "Tracking failed .. Reinitialize tracking by drawing a bounding box and press enter";
+					if (getBBFromUser(img, box, gui, message) == PROGRAM_EXIT)
+					{
+						break;
+					}
+
+					Rect r = Rect(box);
+					tld->selectObject(grey, &r);
+				}
+			}
+			else
+			{
+				first_tracking_failed_detection = true;
+			}
+		}
 
 
         double toc = (cvGetTickCount() - tic) / cvGetTickFrequency();
@@ -908,6 +940,7 @@ void Main::doWork()
 
                 if(key == 'r')
                 {
+					trackingStart = true;
                     CvRect box;
 					std::string message = "Draw a bounding box and press enter";
                     if(getBBFromUser(img, box, gui, message) == PROGRAM_EXIT)

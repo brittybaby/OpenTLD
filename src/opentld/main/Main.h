@@ -95,6 +95,8 @@ public:
 	Rect pegGroupROI;
 	Rect pegROI;
 	Rect ringROI;
+	bool first_tracking_failed_detection;
+	bool trackingStart;
 	Main()
     {
 		element[0] = getStructuringElement(MORPH_CROSS, Size(5, 5), Point(0, 0));
@@ -147,6 +149,8 @@ public:
 		pegGroupROI = Rect(160, 240, 830, 550);
 		pegROI = Rect(476, 258, 20, 47);
 		ringROI = Rect(526, 595, 17, 21);
+		first_tracking_failed_detection = false;
+		trackingStart = false;
 	}
 
     ~Main()

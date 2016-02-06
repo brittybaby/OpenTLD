@@ -20,7 +20,7 @@ public:
 
 public:
 
-	bool valueInRange(int value, int min, int max)
+	bool RingBox::valueInRange(int value, int min, int max)
 	{
 		return (value >= min) && (value <= max);
 	}

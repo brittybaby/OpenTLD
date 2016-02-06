@@ -221,6 +221,32 @@ namespace tld
 			dilate(fgMaskRing, fgMaskRing, element[0]);
 
 			//p.copyTo(p, fgMaskPeg);
+
+
+			Mat mask = fgMaskRing.clone();
+			vector<Vec4i> hierarchy_ring;
+
+			//imshow("Initial mask", initial_ring_mask);
+
+			findContours(mask, pegsI, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+			count = pegsI.size();
+
+			for (int i = 0; i < pegsI.size(); i++)
+			{
+				if (pegsI[i].size() < 35)
+				{
+					Rect r = boundingRect(pegsI[i]);
+					for (int y = r.y; y < r.y + r.height; y++)
+					{
+						for (int x = r.x; x < r.x + r.width; x++)
+						{
+							fgMaskRing.at<uchar>(Point(x, y)) = 0;
+						}
+					}
+					count--;
+				}
+			}
+
 			for (int y = 0; y < src.rows; y++)
 			{
 				for (int x = 0; x < src.cols; x++)
@@ -235,17 +261,6 @@ namespace tld
 					}
 				}
 			}
-
-			Mat mask = fgMaskRing.clone();
-			vector<Vec4i> hierarchy_ring;
-
-			//imshow("Initial mask", initial_ring_mask);
-
-			findContours(mask, pegsI, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
-			count = pegsI.size();
-
-
-
 			cout << "count Rings->" << count << endl;
 			cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 0.5, 0.5, 0, 1, 8);
 			putText(im1, message.c_str(), cvPoint(0, 60), CV_FONT_HERSHEY_SIMPLEX, .7, Scalar(255, 255, 0), 1);

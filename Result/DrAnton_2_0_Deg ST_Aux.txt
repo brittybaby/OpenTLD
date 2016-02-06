@@ -1,0 +1,35 @@
+Output-File for the video -> H:/DrMarshal_1_0_Deg_ST_Aux.avi
+Locations and code of the Pegs (x,y,width,height,code)
+peg 1 ->  240  266  124  94  0
+peg 2 ->  204  405  133  103  1
+peg 3 ->  184  556  146  122  2
+peg 4 ->  414  270  126  96  3
+peg 5 ->  422  404  136  104  4
+peg 6 ->  414  562  146  122  5
+peg 7 ->  620  275  124  94  6
+peg 8 ->  625  416  133  103  7
+peg 9 ->  628  577  146  122  8
+peg 10 ->  811  277  126  96  9
+peg 11 ->  829  416  136  104  10
+peg 12 ->  850  576  146  122  11
+
+
+Frame-No, Ring1-Status, Ring1-Code, Ring2-Status, Ring2-Code, Ring3-Status, Ring3-Code, Ring4-Status, Ring4-Code, Ring5-Status, Ring5-Code, Ring6-Status, Ring6-Code, Hitting-Detection-Output, Tracking-Output, Tracking-Output-Confidence
+2  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+3  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+4  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+5  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+6  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+7  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+8  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+9  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+10  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+11  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+12  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+13  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+14  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+15  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+16  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+17  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+18  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
+19  stationary  5  stationary  2  stationary  1  stationary  4  stationary  3  stationary  0  0  -1  -1  -1  -1  -1 
