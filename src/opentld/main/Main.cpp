@@ -56,8 +56,8 @@ void Main::draw(Mat &img)
 		rectangle(img, r, Scalar(0, 255, 0), 2);
 		putText(img, SSTR(code), p, FONT_HERSHEY_SIMPLEX, .7, Scalar(0, 255, 0), 2, 8, false);
 	}
-	imshow("blank", img);
-	waitKey(0);
+	//imshow("blank", img);
+	//waitKey(0);
 }
 
 void Main::HittingDetection(const Mat &prv_frame, const Mat &curr_frame, vector<unsigned int> &hittingData)
@@ -67,12 +67,12 @@ void Main::HittingDetection(const Mat &prv_frame, const Mat &curr_frame, vector<
 	Mat kernel = (Mat_<uchar>(3, 3) << 0, 1, 0, 1, 1, 1, 0, 1, 0);
 	int smallImage_width = 128;
 	int smallImage_height = 102;
+	vector<vector<Point> > contours;
+	vector<Vec4i> hierarchy;
 	// vars declaration
 	cv::Size smallSize(smallImage_width, smallImage_height);
 	Mat diff, canny_output, dst;
-	std::vector<Mat> smallImages;
-	vector<vector<Point> > contours;
-	vector<Vec4i> hierarchy;
+
 
 	// absolute diffrence between successive frames
 	cv::absdiff(prv_frame, curr_frame, diff);
@@ -86,42 +86,35 @@ void Main::HittingDetection(const Mat &prv_frame, const Mat &curr_frame, vector<
 	cv::dilate(dst, dst, kernel);
 	cv::normalize(dst, dst, 0, 255, cv::NORM_MINMAX);
 
-	// divide image int 10x10 blocks
+	// divide image int 10x10 blocks and calculate contours on each subwindow
 	for (int y = 0; y < dst.rows - smallSize.height+1; y += smallSize.height)
 	{
 		for (int x = 0; x < dst.cols - smallSize.width+1; x += smallSize.width)
 		{
 			cv::Rect rect = cv::Rect(x, y, smallSize.width, smallSize.height);
-			smallImages.push_back(cv::Mat(dst.clone(), rect));
+			Mat temp = dst(rect);
+			findContours(temp, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+			if (contours.size())
+			{
+				hittingData.push_back(contours.size());
+			}
 		}
 	}
-	int smallimage_size = smallImages.size();
-	int sum = 0;
-	for (int i = 0; i < smallimage_size; ++i)
-	{
-		findContours(smallImages[i], contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
-		if (contours.size())
-		{
-			hittingData.push_back(contours.size());
-		}
-	}
-	smallImages.clear();
 }
 Rect Main::getmovingRingROI(const Mat &curr_frame)
 {
 	Mat blank = cv::Mat::zeros(cv::Size(curr_frame.cols, curr_frame.rows), CV_8UC3);
 	vector<vector<Point> > contours;
 	vector<Vec4i> hierarchy;
+
 	Rect r = Rect(0, 0, 0, 0);
 	Mat fgMask, fgMaskMovingRing;
 	pMOG->operator()(curr_frame, fgMask, 0);
 	if (updateModel)
 	{
-		pMOG->operator()(curr_frame, fgMask, 0.6);
+		pMOG->operator()(curr_frame, fgMask, 0.5);
 		updateModel = false;
 	}
-
-
 	Mat movingToolRing, movingToolRing_hsv;
 	curr_frame.copyTo(movingToolRing, fgMask);
 
@@ -143,24 +136,11 @@ Rect Main::getmovingRingROI(const Mat &curr_frame)
 		dilate(fgMaskMovingRing, fgMaskMovingRing, element[1]);
 		dilate(fgMaskMovingRing, fgMaskMovingRing, element[1]);
 		dilate(fgMaskMovingRing, fgMaskMovingRing, element[1]);
-		
-		//if (!fgMaskMovingRing.empty())
-		//{
-		//	imshow("fgMaskMovingRing", fgMaskMovingRing);
-		//	waitKey(10);
-		//}
-		findContours(fgMaskMovingRing, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
-		
-		// draw contours
-		//drawContours(blank, contours, 0, Scalar(255, 0, 0), 2);
-		//imshow("blank", blank);
-		//waitKey(10);
-		//
-		//for (int i = 0; i < contours.size(); ++i)
-		//{
-		//	cout << "contour " << i << "-> size" << contours[i].size() << endl;
-		//}
-		//cout << endl;
+
+
+		findContours(fgMaskMovingRing, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+
+
 
 		vector<bool> markedContours(contours.size(), false);
 		vector<Point> maxContour;
@@ -184,6 +164,7 @@ Rect Main::getmovingRingROI(const Mat &curr_frame)
 		}
 	}
 	return r;
+	
 }
 
 void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
@@ -195,9 +176,30 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 	// Do the ring segmentation of the current frame;
 	cvtColor(curr_frame, curr_frame_hsv, CV_BGR2HSV);
 
+
 	mvRingROI = getmovingRingROI(curr_frame);
 
+	Point p1 = Point(prevmvRingROI.x + (prevmvRingROI.width / 2.0), prevmvRingROI.y + prevmvRingROI.height / 2.0);
+	Point p2 = Point(mvRingROI.x + (mvRingROI.width / 2.0), mvRingROI.y + mvRingROI.height / 2.0);
+	double dist1 = sqrt(((p1.x - p2.x)*(p1.x - p2.x)) + ((p1.y - p2.y)*(p1.y - p2.y)));
 
+	
+	if (dist1 > 150)
+	{
+		if (firstTimeRingDetection && prevmvRingROI.width > 0 && mvRingROI.width > 0)
+		{
+			updateModel = true;
+		}
+	}
+
+	if (firstTimeRingDetection)
+		prevmvRingROI = mvRingROI;
+
+	if (updateModel)
+	{
+		prevmvRingROI = Rect(0,0,0,0); 
+	}
+	
 	Mat channel[3];
 	split(curr_frame_hsv, channel);
 
@@ -206,12 +208,13 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 	cv::threshold(channel[0], fgMaskRing, ring_hue_thresh_val, 255, THRESH_TOZERO_INV); //b1((b1 >= T))= 0; 
 	cv::threshold(fgMaskRing, fgMaskRing, 1, 255, THRESH_BINARY); //b1((b1 > 0))= 255;
 
-	erode(fgMaskRing, fgMaskRing, element[0]);
-	dilate(fgMaskRing, fgMaskRing, element[1]);
-	erode(fgMaskRing, fgMaskRing, element[0]);
-	dilate(fgMaskRing, fgMaskRing, element[1]);
-	Mat maskRing = fgMaskRing.clone();
 	
+	erode(fgMaskRing, fgMaskRing, element[2]);
+	dilate(fgMaskRing, fgMaskRing, element[0]);
+	erode(fgMaskRing, fgMaskRing, element[2]);
+	dilate(fgMaskRing, fgMaskRing, element[0]);
+	Mat maskRing = fgMaskRing.clone();
+	//imshow("MaskRing", maskRing);
 	// *********  drawing ************************* 
 	//Mat test;
 	//cvtColor(fgMaskRing, test, CV_GRAY2BGR);
@@ -219,122 +222,127 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 	for (int i = 0; i < _pegBox.pegs.size(); ++i)
 	{
 		string text = SSTR(_pegBox.pegs[i].code);
-		rectangle(drawing, _pegBox.pegs[i].roi, Scalar(0, 255, 0), 2);
-		putText(drawing, text, _pegBox.pegs[i].center, FONT_HERSHEY_SIMPLEX, .7, Scalar(0, 255, 0), 2, 8, false);
-
+		rectangle(drawing, _pegBox.pegs[i].roi, Scalar(0, 255, 0), 1);
+		putText(drawing, text, _pegBox.pegs[i].center, FONT_HERSHEY_SIMPLEX, .7, Scalar(255, 0, 0), 2, 8, false);
 	}
 	// plot the tool tip
 	if (trackingOut.width > 0)
 	{
-		rectangle(drawing, trackingOut, Scalar(0, 0, 255), 4);
+		//rectangle(drawing, trackingOut, Scalar(0, 0, 255), 4);
 		circle(drawing, Point(trackingOut.x + trackingOut.width, trackingOut.y + trackingOut.height + 40), 10, Scalar(0, 0, 255), 3, 8, 0);
 
 	}
 	//plot the moving ring
 	if (mvRingROI.width > 0)
 	{
-		rectangle(drawing, mvRingROI, Scalar(255, 0, 255), 4);
-		//putText(test, SSTR(dist), Point(mvRingROI.x + mvRingROI.width / 2, mvRingROI.y + mvRingROI.height/2), FONT_HERSHEY_SIMPLEX, .7, Scalar(0, 255, 0), 2, 8, false);
+		rectangle(drawing, mvRingROI, Scalar(255, 0, 255), 1);
+		putText(drawing, "moving ring", Point(mvRingROI.x + mvRingROI.width / 2, mvRingROI.y + mvRingROI.height / 2), FONT_HERSHEY_SIMPLEX, .7, Scalar(0, 255, 0), 2, 8, false);
 	}
 	//string filename = "D:/Official/Programs/endo_tracking/data/Result/" + SSTR(temp++) + ".png";
 	//imwrite(filename, test);
 	// *******************************************
 	for (int i = 0; i < _ringBox.rings.size(); ++i)
 	{
-		string text = "Ring " + SSTR(i) + " Code " + SSTR(_ringBox.rings[i].getCode()) + "  Status " + _ringBox.rings[i].getStatus();
-		putText(drawing, text, Point(10, (i * 15) + 100), FONT_HERSHEY_PLAIN, .7, Scalar(255, 255, 255), 1, 8, false);
+		string text = "Ring " + SSTR(i) + " On the Peg " + SSTR(_ringBox.rings[i].getCode()) + "  (with Status " + _ringBox.rings[i].getStatus() + ")";
+		putText(drawing, text, Point(10, (i * 15) + 30), FONT_HERSHEY_PLAIN, 1.1, Scalar(255, 255, 255), 1, 8, false);
 	}
-	imshow("output", drawing);
-	waitKey(10);
+	putText(drawing, "Hitting Detection Value ->" + SSTR(hittingDetectionVal), Point(10, (6 * 15) + 50), FONT_HERSHEY_PLAIN, 1.1, Scalar(0, 0, 255), 2, 8, false);
+	//putText(drawing, "Tugging Detection Value 1 ->" + SSTR(TuggingVal1), Point(10, (7 * 15) + 50), FONT_HERSHEY_PLAIN, 1.1, Scalar(0, 0, 255), 2, 8, false);
+	//putText(drawing, "Tugging Detection Value 2 ->" + SSTR(TuggingVal2), Point(10, (8 * 15) + 50), FONT_HERSHEY_PLAIN, 1.1, Scalar(0, 0, 255), 2, 8, false);
+	//string outfilename = "D:/Official/Programs/endo_tracking/data/Result1/" + SSTR(++fileWriteCount) + ".png";
+	//imwrite(outfilename, drawing);
+	//imshow("output", drawing);
+	//waitKey(10);
 	//_ringBox.update(fgMaskRing);
 	
-	unordered_map<int, double> graySum_firstHalf;
-	unordered_map<int, double> graySum_secondHalf;
-	for (int i = 0; i < _pegBox.pegs_firstHalf.size(); ++i)
+	//unordered_map<int, double> graySum_firstHalf;
+	//unordered_map<int, double> graySum_secondHalf;
+	//for (int i = 0; i < _pegBox.pegs_firstHalf.size(); ++i)
+	//{
+	//	int code = _pegBox.pegs_firstHalf[i].code;
+	//	Rect roi = _pegBox.pegs_firstHalf[i].roi;
+	//	Mat temp = maskRing(roi);
+	//	double sumPixels = cv::sum(cv::sum(temp)).val[0];
+	//	graySum_firstHalf[code] = sumPixels;
+	//	//cout << "val -> " << sumPixels << endl;
+	//}
+	//for (int i = 0; i < _pegBox.pegs_secondHalf.size(); ++i)
+	//{
+	//	int code = _pegBox.pegs_secondHalf[i].code;
+	//	Rect roi = _pegBox.pegs_secondHalf[i].roi;
+	//	Mat temp = maskRing(roi);
+	//	double sumPixels = cv::sum(cv::sum(temp)).val[0];
+	//	graySum_secondHalf[code] = sumPixels;
+	//	//cout << "val -> " << sumPixels << endl;
+	//}
+
+	unordered_map<int, double> graySum;
+	for (int i = 0; i < _pegBox.pegs.size(); ++i)
 	{
-		int code = _pegBox.pegs_firstHalf[i].code;
-		Rect roi = _pegBox.pegs_firstHalf[i].roi;
+		int code = _pegBox.pegs[i].code;
+		Rect roi = _pegBox.pegs[i].roi;
 		Mat temp = maskRing(roi);
 		double sumPixels = cv::sum(cv::sum(temp)).val[0];
-		graySum_firstHalf[code] = sumPixels;
-		//cout << "val -> " << sumPixels << endl;
-	}
-	for (int i = 0; i < _pegBox.pegs_secondHalf.size(); ++i)
-	{
-		int code = _pegBox.pegs_secondHalf[i].code;
-		Rect roi = _pegBox.pegs_secondHalf[i].roi;
-		Mat temp = maskRing(roi);
-		double sumPixels = cv::sum(cv::sum(temp)).val[0];
-		graySum_secondHalf[code] = sumPixels;
+		graySum[code] = sumPixels;
 		//cout << "val -> " << sumPixels << endl;
 	}
 
 	//cout << endl << endl;
 	if (status == "stationary")
 	{
-		if (no_of_rings_moved_firstHalf == 6)
-		{
-			// All rings moved; swap graySum_firstHalf and graySum_secondHalf; reset counter
-			firstTimeRingDetection = false;
-			cout << "mvRingROI.width  " << mvRingROI.width << endl;
-
-
-			_pegBox.SwapFirstAndSecondHalf();
-
-			no_of_rings_moved_firstHalf = 0;
-			no_of_rings_placed_secondHalf = 0;
-
-			// swap the content of the state vector
-		}
-		
-		for (auto it = graySum_firstHalf.begin(); it != graySum_firstHalf.end(); ++it)
+		for (auto it = graySum.begin(); it != graySum.end(); ++it)
 		{
 			if (it->second == 0)
 			{
 				count1++;
 			}
 		}
-		for (auto it = graySum_secondHalf.begin(); it != graySum_secondHalf.end(); ++it)
+		for (auto it = graySum.begin(); it != graySum.end(); ++it)
 		{
 			if (it->second > 1.2e6)
 			{
 				count2++;
 			}
 		}
-		if (count1 == no_of_rings_moved_firstHalf)
+
+		if (count1 >= no_of_rois_with_ring)
 		{
 			// Determine whether stationary or picking status
 			if (mvRingROI.width > 0)
 			{
 				if (firstTimeRingDetection)
 				{
-
 					Point center_ring = Point(mvRingROI.x + (mvRingROI.width / 2.0), mvRingROI.y + mvRingROI.height / 2.0);
 					Point center_tooltip = Point(trackingOut.x + trackingOut.width, trackingOut.y + trackingOut.height + 40);
-					if (center_ring.x > 0 && center_ring.y > 0)
+					if (center_ring.x > 0 && center_ring.y > 0 && trackingOut.x > 0 && trackingOut.y > 0)
 					{
 						dist = sqrt(((center_ring.x - center_tooltip.x)*(center_ring.x - center_tooltip.x)) + ((center_ring.y - center_tooltip.y)*(center_ring.y - center_tooltip.y)));
 						if (dist < 150)
 						{
-							status = "picking";
-							// Find intersection of moving Ring ROI with the first half and determine which
-							// Ring trainee is trying to pick up; then change the code of the ring
-							for (int i = 0; i < _pegBox.pegs_firstHalf.size(); ++i)
+							pickingCount++;
+							if (pickingCount == 2)
 							{
-								Rect r = _pegBox.pegs_firstHalf[i].roi;
-								int code = _pegBox.pegs_firstHalf[i].code;
-								bool intersect = _ringBox.rectOverlap(r, mvRingROI);
-								if (intersect)
+								pickingCount = 0;
+								status = "picking";
+								// Find intersection of moving Ring ROI with the first half and determine which
+								// Ring trainee is trying to pick up; then change the code of the ring
+								for (int i = 0; i < _pegBox.pegs.size(); ++i)
 								{
-									for (int p = 0; p < _ringBox.rings.size(); ++p)
+									Rect r = _pegBox.pegs[i].roi;
+									int code = _pegBox.pegs[i].code;
+									bool intersect = _ringBox.rectOverlap(r, mvRingROI);
+									if (intersect)
 									{
-										if (code == _ringBox.rings[p].getCode())
+										for (int p = 0; p < _ringBox.rings.size(); ++p)
 										{
-											_ringBox.rings[p].setStatus(status);
-											break;
+											if (code == _ringBox.rings[p].getCode())
+											{
+												_ringBox.rings[p].setStatus(status);
+												break;
+											}
 										}
+										break;
 									}
-									break;
 								}
 							}
 						}
@@ -351,86 +359,137 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 				status = "stationary";
 			}
 		}
-
-		if (count2 < no_of_rings_placed_secondHalf)
-		{
-
-		}
 	}
 	
 	else if (status == "picking")
 	{
-		for (auto it = graySum_firstHalf.begin(); it != graySum_firstHalf.end(); ++it)
+		int code = -1, index = -1;
+		for (int i = 0; i < _ringBox.rings.size(); ++i)
 		{
-			if (it->second == 0)
+			if (_ringBox.rings[i].getStatus() == "picking")
 			{
-				count1++;
+				code = _ringBox.rings[i].getCode();
+				break;
 			}
 		}
-		for (auto it = graySum_secondHalf.begin(); it != graySum_secondHalf.end(); ++it)
+
+		for (int i = 0; i < _pegBox.pegs.size(); ++i)
 		{
-			if (it->second > 1.2e6)
+			if (code == _pegBox.pegs[i].code)
 			{
-				count2++;
+				index = i;
+				break;
 			}
 		}
-		if (count1 == no_of_rings_moved_firstHalf)
+		if (index >= 0)
+		{
+			Rect r = _pegBox.pegs[index].roi;
+			//Mat pegRing = 
+			Mat temp = maskRing(r);
+			double sumPixels = cv::sum(cv::sum(temp)).val[0];
+			if (sumPixels == 0)
+			{
+				status = "moving";
+				//updateModel = true;
+				for (int i = 0; i < _ringBox.rings.size(); ++i)
+				{
+					if (_ringBox.rings[i].getStatus() == "picking")
+					{
+						_ringBox.rings[i].setStatus(status);
+						break;
+					}
+				}
+			}
+			else
+			{
+				status = "picking";
+				// determine eccentrcity value for the tugging
+				//if (mvRingROI.width > 75)
+				//{
+				//	Mat pegRing, pegRingHSV, pegMaskedRing;
+				//	vector<vector<Point> > contours;
+				//	vector<Vec4i> hierarchy;
+
+				//	pegRing = curr_frame(mvRingROI);
+				//	cvtColor(pegRing, pegRingHSV, CV_BGR2HSV);
+
+				//	Mat ch[3];
+				//	split(pegRingHSV, ch);
+
+				//	cv::threshold(ch[0], pegMaskedRing, ring_hue_thresh_val, 255, THRESH_TOZERO_INV); //b1((b1 >= T))= 0; 
+				//	cv::threshold(pegMaskedRing, pegMaskedRing, 1, 255, THRESH_BINARY); //b1((b1 > 0))= 255;
+
+
+				//	erode(pegMaskedRing, pegMaskedRing, element[2]);
+				//	dilate(pegMaskedRing, pegMaskedRing, element[0]);
+				//	erode(pegMaskedRing, pegMaskedRing, element[2]);
+				//	dilate(pegMaskedRing, pegMaskedRing, element[0]);
+				//	imshow("fgMaskMovingRing", pegMaskedRing);
+				//	
+
+				//	findContours(pegMaskedRing, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+				//	if (contours.size() == 1)
+				//	{
+				//		vector<Point> c = contours[0];
+				//		ContourFeature cf(c);
+				//		RotatedRect r = fitEllipse(Mat(c));
+				//		double ar = r.boundingRect().width / (double) r.boundingRect().height;
+				//		double ecc = cf.getEccentricity();
+				//		TuggingVal1 = ecc;
+				//		TuggingVal2 = ar;
+				//	}
+				//	else
+				//	{
+				//		TuggingVal1 = 0;
+				//		TuggingVal2 = 0;
+				//	}
+				//}
+
+			}
+		}
+		else
 		{
 			status = "picking";
 		}
-		if (count1 > no_of_rings_moved_firstHalf)
-		{
-			status = "moving";
-			no_of_rings_moved_firstHalf = count1;
-			for (int i = 0; i < _ringBox.rings.size(); ++i)
-			{
-				if (_ringBox.rings[i].getStatus() == "picking")
-				{
-					_ringBox.rings[i].setStatus("moving");
-					break;
-				}
-			}
-		}
-		else if (no_of_rings_moved_firstHalf == 6)
-		{
-			// all rings moved
-		}
+		
 	}
 	else if (status == "moving")
 	{
-		for (auto it = graySum_firstHalf.begin(); it != graySum_firstHalf.end(); ++it)
+		for (auto it = graySum.begin(); it != graySum.end(); ++it)
 		{
 			if (it->second == 0)
 			{
 				count1++;
 			}
 		}
-		for (auto it = graySum_secondHalf.begin(); it != graySum_secondHalf.end(); ++it)
+		for (auto it = graySum.begin(); it != graySum.end(); ++it)
 		{
-			if (it->second > 1.2e6)
+			if (it->second > 0.5e6)
 			{
 				count2++;
 			}
 		}
-		if (count2 > no_of_rings_placed_secondHalf)
+		if (count2 == 5)
 		{
-			// use tracking output and moving ring output to determine weather ring is placed or not
+			status == "moving";
+		}
+		else if(count2 >= 6)
+		{
 			Point center_ring = Point(mvRingROI.x + (mvRingROI.width / 2.0), mvRingROI.y + mvRingROI.height / 2.0);
 			Point center_tooltip = Point(trackingOut.x + trackingOut.width, trackingOut.y + trackingOut.height + 40);
-			if (center_ring.x > 0 && center_ring.y > 0)
+			if (center_ring.x > 0 && center_ring.y > 0 && trackingOut.x > 0 && trackingOut.y > 0)
 			{
 				dist = sqrt(((center_ring.x - center_tooltip.x)*(center_ring.x - center_tooltip.x)) + ((center_ring.y - center_tooltip.y)*(center_ring.y - center_tooltip.y)));
 				if (dist > 150)
 				{
 					status = "stationary";
-					no_of_rings_placed_secondHalf = count2;
 					updateModel = true;
 
 					int index_peg = 0;
-					for (int i = 0; i < _pegBox.pegs_secondHalf.size(); ++i)
+					for (int i = 0; i < _pegBox.pegs.size(); ++i)
 					{
-						Rect r = _pegBox.pegs_secondHalf[i].roi;
-						int code = _pegBox.pegs_secondHalf[i].code;
+						Rect r = _pegBox.pegs[i].roi;
+						int code = _pegBox.pegs[i].code;
 						bool intersect = _ringBox.rectOverlap(r, mvRingROI);
 						if (intersect)
 						{
@@ -443,25 +502,16 @@ void Main::activityDetection(const Mat &curr_frame, const Rect &trackingOut)
 					{
 						if (_ringBox.rings[i].getStatus() == "moving")
 						{
-							_ringBox.rings[i].setStatus("stationary");
-							_ringBox.rings[i].setCode(_pegBox.pegs_secondHalf[index_peg].code);
+							_ringBox.rings[i].setStatus(status);
+							_ringBox.rings[i].setCode(_pegBox.pegs[index_peg].code);
 							break;
 						}
 					}
 				}
 			}
 		}
-		else
-		{
-			status = "moving";
-		}
 	}
-	
-	cout << "no_of_rings_moved_firstHalf -> " << no_of_rings_moved_firstHalf << endl;
-	cout << "no_of_rings_placed_secondHalf -> " << no_of_rings_placed_secondHalf << endl;
 	cout << "status -> " << status << endl << endl;
-
-
 }
 void Main::doWork()
 {
@@ -497,8 +547,8 @@ void Main::doWork()
 			}
 			pegGroupROI = Rect(box);
 		}
-
 	}
+	// *************************************************************************************
 
 	if (initializePeg)
 	{
@@ -606,7 +656,6 @@ void Main::doWork()
 		}
 		_pegBox.updateRoiCenter(roi_rings);
 
-
 	}
 	else
 	{
@@ -705,6 +754,7 @@ void Main::doWork()
 		fprintf(resultsFile, "\n\nFrame-No, Ring1-Status, Ring1-Code, Ring2-Status, Ring2-Code, Ring3-Status, Ring3-Code, Ring4-Status, Ring4-Code, Ring5-Status, Ring5-Code, Ring6-Status, Ring6-Code, Hitting-Detection-Output, Tracking-Output, Tracking-Output-Confidence\n");
 	}
 	gui->showImageByDestroyingWindow(img);
+
     while(imAcqHasMoreFrames(imAcq))
     {
         double tic = cvGetTickCount();
@@ -718,11 +768,47 @@ void Main::doWork()
                 printf("current image is NULL, assuming end of input.\n");
                 break;
             }
-
             cvtColor(cvarrToMat(img), grey, CV_BGR2GRAY);
         }
+		
+		if(!skipProcessingOnce)
+        {
+            tld->processImage(cvarrToMat(img));
+        }
+        else
+        {
+            skipProcessingOnce = false;
+        }
 
-		/*  ********** Hitting Detection *****************  
+		// if tracking fails then prompt the user to reinitialize the tracking
+		if (tld->currBB == NULL)
+		{
+			if (first_tracking_failed_detection && trackingStart)
+			{
+				if (mvRingROI.width > 0)
+				{
+					Point center_ring = Point(mvRingROI.x + (mvRingROI.width / 2.0), mvRingROI.y + mvRingROI.height / 2.0);
+					if (center_ring.y > mvRingROI.height)
+					{
+						CvRect box;
+						std::string message = "Tracking failed .. Reinitialize tracking by drawing a bounding box and press enter";
+						if (getBBFromUser(img, box, gui, message) == PROGRAM_EXIT)
+						{
+							break;
+						}
+						Rect r = Rect(box);
+						tld->learnPatch(grey, &r);
+					}
+				}
+			}
+			else
+			{
+				first_tracking_failed_detection = true;
+			}
+		}
+
+
+		/*  ********** Hitting Detection *****************
 		Calculate the adsolute difference between two successive frames
 		divide image into 10x10 subimage
 		calculate in how many subimages contours are dected
@@ -731,10 +817,11 @@ void Main::doWork()
 		curr_frame = Mat(img);
 		vector<unsigned int > frameHitData;
 		HittingDetection(prv_frame, curr_frame, frameHitData);
+		hittingDetectionVal = frameHitData.size();
 		hittingData.push_back(frameHitData);
 		// Replace the previous with current frame and reset frameHitData
 		prv_frame = curr_frame.clone();
-		
+
 		/***********************************************************
 
 		/*  ********** Activity Detection *****************
@@ -752,11 +839,11 @@ void Main::doWork()
 		}
 		else
 		{
-			activityDetection(curr_frame, Rect(0,0,0,0));
+			activityDetection(curr_frame, Rect(-1, -1, -1, -1));
 		}
 		//******************************************************
 
-		
+
 		// Writing results
 		if (printResults != NULL)
 		{
@@ -787,40 +874,9 @@ void Main::doWork()
 					frameHitData.size());
 			}
 		}
-
 		frameHitData.clear();
-		if(!skipProcessingOnce)
-        {
-            tld->processImage(cvarrToMat(img));
-        }
-        else
-        {
-            skipProcessingOnce = false;
-        }
 
-		// if tracking fails then prompt the user to reinitialize the tracking
-		if (tld->currBB == NULL)
-		{
-			if (first_tracking_failed_detection && trackingStart)
-			{
-				if (mvRingROI.width > 0)
-				{
-					CvRect box;
-					std::string message = "Tracking failed .. Reinitialize tracking by drawing a bounding box and press enter";
-					if (getBBFromUser(img, box, gui, message) == PROGRAM_EXIT)
-					{
-						break;
-					}
 
-					Rect r = Rect(box);
-					tld->selectObject(grey, &r);
-				}
-			}
-			else
-			{
-				first_tracking_failed_detection = true;
-			}
-		}
 
 
         double toc = (cvGetTickCount() - tic) / cvGetTickFrequency();
@@ -848,6 +904,8 @@ void Main::doWork()
             CvScalar black = CV_RGB(0, 0, 0);
 			CvScalar white = CV_RGB(255, 255, 255);
 			CvScalar red = CV_RGB(255, 0, 0);
+			CvScalar green = CV_RGB(0, 255, 0);
+			CvScalar cyan = CV_RGB(255, 0, 255);
 
             if(tld->currBB != NULL)
             {
@@ -875,19 +933,44 @@ void Main::doWork()
 
             CvFont font;
             cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, .5, .5, 0, 1, 8);
-            cvRectangle(img, cvPoint(0, 0), cvPoint(img->width, 50), black, CV_FILLED, 8, 0);
+            //cvRectangle(img, cvPoint(0, 0), cvPoint(img->width, 50), black, CV_FILLED, 8, 0);
             cvPutText(img, string, cvPoint(25, 25), &font, white);
+
+			// Draw peg Box
+			for (int i = 0; i < _pegBox.pegs.size(); ++i)
+			{
+				std::string text = SSTR(_pegBox.pegs[i].code);
+				cvRectangle(img, cvPoint(_pegBox.pegs[i].roi.tl().x, _pegBox.pegs[i].roi.tl().y), 
+					cvPoint(_pegBox.pegs[i].roi.br().x, _pegBox.pegs[i].roi.br().y), green, 1, 8, 0);
+				cvPutText(img, text.c_str(), cvPoint(_pegBox.pegs[i].center.x, _pegBox.pegs[i].center.y), &font, blue);
+			}
+
+			// plot the moving ring
+			if (mvRingROI.width > 0)
+			{
+				cvRectangle(img, cvPoint(mvRingROI.x, mvRingROI.y),
+					cvPoint(mvRingROI.br().x, mvRingROI.br().y), cyan, 1, 8, 0);
+				cvPutText(img, "moving ring", cvPoint(mvRingROI.x + mvRingROI.width / 2, mvRingROI.y + mvRingROI.height / 2), &font, blue);
+			}
+
+			for (int i = 0; i < _ringBox.rings.size(); ++i)
+			{
+				std::string text = "Ring " + SSTR(i) + " On the Peg " + SSTR(_ringBox.rings[i].getCode()) + "  (with Status " + _ringBox.rings[i].getStatus() + ")";
+				cvPutText(img, text.c_str(), cvPoint(10, (i * 15) + 50), &font, white);
+			}
+			std::string text = "Hitting Detection Value ->" + SSTR(hittingDetectionVal);
+			cvPutText(img, text.c_str(), Point(10, (6 * 15) + 50), &font, red);
+
 
             if(showForeground)
             {
-
                 for(size_t i = 0; i < tld->detectorCascade->detectionResult->fgList->size(); i++)
                 {
                     Rect r = tld->detectorCascade->detectionResult->fgList->at(i);
                     cvRectangle(img, r.tl(), r.br(), white, 1);
                 }
-
             }
+
             if(showOutput)
             {
                 gui->showImage(img);
@@ -952,7 +1035,22 @@ void Main::doWork()
 
                     tld->selectObject(grey, &r);
                 }
-            }
+
+				if (key == 'z')
+				{
+					trackingStart = true;
+					CvRect box;
+					std::string message = "Draw a bounding box and press enter";
+					if (getBBFromUser(img, box, gui, message) == PROGRAM_EXIT)
+					{
+						break;
+					}
+
+					Rect r = Rect(box);
+
+					tld->learnPatch(grey, &r);
+				}
+			}
 
             if(saveDir != NULL)
             {

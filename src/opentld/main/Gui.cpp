@@ -129,7 +129,7 @@ namespace tld
 		cvInitFont(&font, CV_FONT_HERSHEY_SIMPLEX, 0.5, 0.5, 0, 1, 8);
 
 		cvSetMouseCallback(window_name.c_str(), mouseHandler, NULL);
-		cvPutText(img0, message.c_str(), cvPoint(0, 60),
+		cvPutText(img0, message.c_str(), cvPoint(500, 60),
 			&font, cvScalar(255, 255, 0));
 		cvShowImage(window_name.c_str(), img0);
 
@@ -182,7 +182,7 @@ namespace tld
 
 		img0 = (IplImage *)cvClone(img);
 		char TrackbarName[50];
-		sprintf(TrackbarName, "thresh x %d", slider_max);
+		sprintf(TrackbarName, "thresh");
 
 		slider_val = RingThreshVal;
 		createTrackbar(TrackbarName, window_name, &slider_val, slider_max_hue, 0);
@@ -228,7 +228,7 @@ namespace tld
 
 			//imshow("Initial mask", initial_ring_mask);
 
-			findContours(mask, pegsI, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+			findContours(mask, pegsI, hierarchy_ring, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 			count = pegsI.size();
 
 			for (int i = 0; i < pegsI.size(); i++)
@@ -316,8 +316,6 @@ namespace tld
 
 			//Mat fgMaskRing;
 			inRange(channel[2], slider_val, 255, fgMaskPeg);
-
-
 			// ROI
 			for (int y = 0; y < fgMaskPeg.rows; y++)
 			{
@@ -354,8 +352,7 @@ namespace tld
 			vector<Vec4i> hierarchy_ring;
 
 			//imshow("Initial mask", initial_ring_mask);
-
-			findContours(mask, pegsI, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+			findContours(mask, pegsI, hierarchy_ring, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 			count = pegsI.size();
 
 

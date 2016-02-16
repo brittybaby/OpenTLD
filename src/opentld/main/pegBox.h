@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <algorithm>
 #include <vector>
+#include <set>
 using namespace cv;
 using namespace std;
 
@@ -34,9 +35,12 @@ public:
 	void SwapFirstAndSecondHalf();
 	
 	vector<Peg> pegs;
-	vector<Peg> pegs_firstHalf;
-	vector<Peg> pegs_secondHalf;
+	//vector<Peg> pegs_firstHalf;
+	//vector<Peg> pegs_secondHalf;
  	cv::Mat mask;
 	~pegBox();
+private:
+	int min_peg_threshold;
+
 };
 #endif

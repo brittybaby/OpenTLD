@@ -3,8 +3,9 @@
 
 pegBox::pegBox()
 {
-	pegs_firstHalf.resize(6);
-	pegs_secondHalf.resize(6);
+	//pegs_firstHalf.resize(6);
+	//pegs_secondHalf.resize(6);
+	min_peg_threshold = 25;
 }
 
 bool pegBox::init(const cv::Mat &inp)
@@ -18,13 +19,13 @@ bool pegBox::init(const cv::Mat &inp)
 
 	//imshow("Initial mask", inp);
 	//waitKey(0);
-	findContours(mask, pegsI, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+	findContours(mask, pegsI, hierarchy_ring, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 	unsigned int No_of_pegs = pegsI.size();
 	vector<bool> markedPegs(No_of_pegs, true);
 
 	for (int i = 0; i < No_of_pegs; ++i)
 	{
-		if (pegsI[i].size() < 25)//TODO (define min threshold)
+		if (pegsI[i].size() < min_peg_threshold)//TODO (define min threshold)
 		{
 			markedPegs[i] = false;
 		}
@@ -42,8 +43,8 @@ bool pegBox::init(const cv::Mat &inp)
 	}
 	if (count == 12)
 	{
-		pegs_firstHalf.resize(6);
-		pegs_secondHalf.resize(6);
+		//pegs_firstHalf.resize(6);
+		//pegs_secondHalf.resize(6);
 		int no = initial_roi.size();
 
 		pegs.resize(no);
@@ -100,7 +101,7 @@ pegBox::pegBox(const cv::Mat &inp)
 
 	//imshow("Initial mask", initial_ring_mask);
 
-	findContours(mask, pegsI, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+	findContours(mask, pegsI, hierarchy_ring, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 	unsigned int No_of_pegs = pegsI.size();
 	vector<bool> markedPegs(No_of_pegs);
 
@@ -166,42 +167,92 @@ pegBox::~pegBox()
 void pegBox::updateRoiCenter(vector<pair<Rect, int> > &rois)
 {
 	int count = 0;
+	set<int> s1;
+	set<int> s2;
+	set<int> s3;
+	s1.insert(0);
+	s1.insert(1);
+	s1.insert(2);
+	s1.insert(3);
+	s1.insert(4);
+	s1.insert(5);
+
+	s2.insert(6);
+	s2.insert(7);
+	s2.insert(8);
+	s2.insert(9);
+	s2.insert(10);
+	s2.insert(11);
+
 	for (int i = 0; i < rois.size(); ++i)
 	{
-		int code = rois[i].second;
-		for (int p = 0; p < pegs.size(); ++p)
+		s3.insert(rois[i].second);
+	}
+	std::vector<int> c1;
+	std::vector<int> c2;
+	set_intersection(s1.begin(), s1.end(), s3.begin(), s3.end(), std::back_inserter(c1));
+	set_intersection(s2.begin(), s2.end(), s3.begin(), s3.end(), std::back_inserter(c2));
+
+	if (c2.empty())
+	{
+		for (int i = 0; i < rois.size(); ++i)
 		{
-			if (pegs[p].code == code)
+			int code = rois[i].second;
+			for (int p = 0; p < pegs.size(); ++p)
 			{
-				// first half
-				Rect r = rois[i].first;
-				pegs[p].roi = r;
-				pegs[p].center = Point2f((pegs[p].roi.x + pegs[p].roi.width / 2.0), (pegs[p].roi.y + pegs[p].roi.height / 2.0));
-				pegs_firstHalf[count].center = pegs[p].center;
-				pegs_firstHalf[count].roi = pegs[p].roi;
-				pegs_firstHalf[count].code = code;
+				if (pegs[p].code == code)
+				{
+					// first half
+					Rect r = rois[i].first;
+					pegs[p].roi = r;
+					pegs[p].center = Point2f((pegs[p].roi.x + pegs[p].roi.width / 2.0), (pegs[p].roi.y + pegs[p].roi.height / 2.0));
 
-				// second half
-				Point2f cen = pegs[p + 6].center;
-				pegs[p + 6].roi = Rect(cen.x - r.width / 2, cen.y - r.height / 4, r.width, r.height);
-				pegs_secondHalf[count].center = pegs[p+6].center;
-				pegs_secondHalf[count].roi = pegs[p+6].roi;
-				pegs_secondHalf[count].code = pegs[p+6].code;
-				count++;
+					Point2f cen = pegs[p + 6].center;
+					pegs[p + 6].roi = Rect(cen.x - r.width / 2, cen.y - r.height / 4, r.width, r.height);
+
+					count++;
+				}
 			}
-
 		}
 	}
+	else if (c1.empty())
+	{
+		for (int i = 0; i < rois.size(); ++i)
+		{
+			int code = rois[i].second;
+			for (int p = 0; p < pegs.size(); ++p)
+			{
+				if (pegs[p].code == code)
+				{
+					// first half
+					Rect r = rois[i].first;
+					pegs[p].roi = r;
+					pegs[p].center = Point2f((pegs[p].roi.x + pegs[p].roi.width / 2.0), (pegs[p].roi.y + pegs[p].roi.height / 2.0));
+
+					Point2f cen = pegs[p - 6].center;
+					pegs[p - 6].roi = Rect(cen.x - r.width / 2, cen.y - r.height / 4, r.width, r.height);
+					count++;
+				}
+			}
+		}
+	}
+	else
+	{
+		cout << "Wrong placement of the rings \n";
+		exit(0);
+	}
+
+
 }
 
 void pegBox::SwapFirstAndSecondHalf()
 {
-	vector<Peg> temp(pegs_firstHalf.size());
-	for (int i = 0; i < pegs_firstHalf.size(); ++i)
-	{
-		temp[i] = pegs_firstHalf[i];
-		pegs_firstHalf[i] = pegs_secondHalf[i];
-		pegs_secondHalf[i] = temp[i];
-	}
+	//vector<Peg> temp(pegs_firstHalf.size());
+	//for (int i = 0; i < pegs_firstHalf.size(); ++i)
+	//{
+	//	temp[i] = pegs_firstHalf[i];
+	//	pegs_firstHalf[i] = pegs_secondHalf[i];
+	//	pegs_secondHalf[i] = temp[i];
+	//}
 
 }

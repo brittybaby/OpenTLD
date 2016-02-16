@@ -15,7 +15,7 @@ void RingBox::update(const cv::Mat &inp)
 
 	//imshow("Initial mask", initial_ring_mask);
 
-	findContours(initial_ring_mask, contours_ring, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+	findContours(initial_ring_mask, contours_ring, hierarchy_ring, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 	unsigned int No_of_ring = contours_ring.size();
 	vector<bool> markedRing(No_of_ring, true);
 
@@ -74,7 +74,7 @@ RingBox::RingBox(const cv::Mat &inp)
 
 	//imshow("Initial mask", initial_ring_mask);
 	
-	findContours(initial_ring_mask, contours_ring, hierarchy_ring, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+	findContours(initial_ring_mask, contours_ring, hierarchy_ring, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
 	unsigned int No_of_ring = contours_ring.size();
 	vector<bool> markedRing(No_of_ring);
 	

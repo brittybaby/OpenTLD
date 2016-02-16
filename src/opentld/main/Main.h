@@ -67,6 +67,7 @@ public:
     const char *modelPath;
     const char *modelExportFile;
     int seed;
+	// modified code
 	bool initializePeg;
 	bool initializeRing;
 	double RingHueValue;
@@ -85,7 +86,8 @@ public:
 	double ring_hue_thresh_val;
 	cv::Mat element[4];
 	string status;
-	int no_of_rings_moved_firstHalf, no_of_rings_placed_secondHalf;
+	//int no_of_rings_moved_firstHalf, no_of_rings_placed_secondHalf;
+	int no_of_rois_with_ring, no_of_rois_without_ring;
 	cv::BackgroundSubtractor* pMOG;
 	bool updateModel;
 	double dist;
@@ -97,21 +99,32 @@ public:
 	Rect ringROI;
 	bool first_tracking_failed_detection;
 	bool trackingStart;
+	int fileWriteCount;
+	int hittingDetectionVal;
+	Rect prevmvRingROI;
+	bool movingROIDetection;
+	double TuggingVal1, TuggingVal2;
+	int pickingCount;
 	Main()
     {
 		element[0] = getStructuringElement(MORPH_CROSS, Size(5, 5), Point(0, 0));
 		element[1] = getStructuringElement(MORPH_ELLIPSE, Size(8, 8), Point(0, 0));
 		element[2] = getStructuringElement(MORPH_ELLIPSE, Size(3, 3), Point(0, 0));
 		element[3] = getStructuringElement(MORPH_ELLIPSE, Size(3, 3), Point(0, 0));
-
         tld = new tld::TLD();
         showOutput = 1;
         printResults = NULL;
         saveDir = ".";
         threshold = 0.5;
         showForeground = 0;
-		namedWindow("output", CV_WINDOW_AUTOSIZE);
-		moveWindow("output", 100, 100);
+		//namedWindow("output", CV_WINDOW_AUTOSIZE);
+		//namedWindow("output1", CV_WINDOW_AUTOSIZE);
+		//namedWindow("fgMaskMovingRing", CV_WINDOW_AUTOSIZE);
+		//namedWindow("MaskRing", CV_WINDOW_AUTOSIZE);
+		//moveWindow("output", 100, 100);
+		//moveWindow("output1", 100, 100);
+		//moveWindow("fgMaskMovingRing", 100, 100);
+		//moveWindow("MaskRing", 100, 100);
 		showTrajectory = false;
 		trajectoryLength = 0;
 
@@ -138,8 +151,8 @@ public:
 		PegSaturation_maxValue = 255;
 		ring_hue_thresh_val = 20.0;
 		status = "stationary";
-		no_of_rings_moved_firstHalf = 0;
-		no_of_rings_placed_secondHalf = 0;
+		//no_of_rings_moved_firstHalf = 0;
+		//no_of_rings_placed_secondHalf = 0;
 		pMOG = new BackgroundSubtractorMOG2(20, 100, false);
 		updateModel = false;
 		dist = 0;
@@ -149,10 +162,18 @@ public:
 		pegGroupROI = Rect(160, 240, 830, 550);
 		pegROI = Rect(476, 258, 20, 47);
 		ringROI = Rect(526, 595, 17, 21);
+		prevmvRingROI = Rect(0, 0, 0, 0);
 		first_tracking_failed_detection = false;
 		trackingStart = false;
+		fileWriteCount = 0;
+		hittingDetectionVal = 0;
+		no_of_rois_with_ring = 6;
+		no_of_rois_without_ring = 0;
+		movingROIDetection = true;
+		TuggingVal1 = 0;
+		TuggingVal2 = 0;
+		pickingCount = 0;
 	}
-
     ~Main()
     {
         delete tld;
